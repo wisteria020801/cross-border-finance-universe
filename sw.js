@@ -1,10 +1,10 @@
 // 跨境金融知识宇宙 - Service Worker
 // 离线缓存核心资源，让 PWA 在手机上无网也能打开
 
-const CACHE = 'cfu-v1';
+const CACHE = 'cfu-v2';
 const ASSETS = [
   './',
-  './test.html',
+  './index.html',
   './manifest.json',
   './icon.svg'
 ];

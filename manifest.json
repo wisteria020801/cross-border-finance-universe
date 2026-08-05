@@ -2,7 +2,7 @@
   "name": "跨境金融知识宇宙",
   "short_name": "金融宇宙",
   "description": "跨境金融知识库 - 永久免费、像 App 一样使用",
-  "start_url": "./test.html",
+  "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait",
