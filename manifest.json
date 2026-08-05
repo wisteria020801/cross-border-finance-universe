@@ -1,0 +1,20 @@
+{
+  "name": "跨境金融知识宇宙",
+  "short_name": "金融宇宙",
+  "description": "跨境金融知识库 - 永久免费、像 App 一样使用",
+  "start_url": "./test.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#050A14",
+  "theme_color": "#050A14",
+  "lang": "zh-CN",
+  "icons": [
+    {
+      "src": "./icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
