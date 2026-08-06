@@ -1528,6 +1528,16 @@ function closeSearch() {
   searchResults.innerHTML = '<div class="search-hint">支持搜索节点标题、分类、标签和正文内容。</div>';
 }
 
+// 暴露到 window，便于自动化测试与外部调用
+window.openSearch = openSearch;
+window.closeSearch = closeSearch;
+window.openLearning = openLearning;
+window.closeLearning = closeLearning;
+window.openPanel = openPanel;
+window.performSearch = performSearch;
+window.nodes = nodes;
+window.learningPaths = learningPaths;
+
 searchBtn.addEventListener('click', openSearch);
 searchClose.addEventListener('click', closeSearch);
 
