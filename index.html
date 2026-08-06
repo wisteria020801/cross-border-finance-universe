@@ -1632,6 +1632,11 @@ function performSearch(q) {
 searchInput.addEventListener('input', () => performSearch(searchInput.value));
 
 // ── 学习路径 ──────────────────────────────────────────────
+// 日志埋点：统一前缀 [LEARN]，方便在 DevTools Console 排查跳转逻辑
+const LEARN_LOG = (...args) => console.log('%c[LEARN]', 'color:#06B6D4;font-weight:bold', ...args);
+const LEARN_WARN = (...args) => console.warn('%c[LEARN]', 'color:#F59E0B;font-weight:bold', ...args);
+const LEARN_ERR = (...args) => console.error('%c[LEARN]', 'color:#EF4444;font-weight:bold', ...args);
+
 const learningPaths = [
   {
     title: '入门：从零搭建金融框架',
@@ -1686,45 +1691,123 @@ function renderLearningPaths() {
     '</div>'
   ).join('');
 
-  container.querySelectorAll('.step-node').forEach(el => {
+  container.querySelectorAll('.step-node').forEach((el, idx) => {
     el.addEventListener('click', e => {
       e.stopPropagation();
-      const n = nodes.find(x => x.id === el.dataset.nodeId);
-      if (n) {
-        closeLearning();
-        resetView();
-        setTimeout(() => openPanel(n), 100);
+      const t0 = performance.now();
+      const nodeId = el.dataset.nodeId;
+      LEARN_LOG('🖱️ [step-node click]', { indexInContainer: idx, nodeId, label: el.textContent.trim() });
+
+      const n = nodes.find(x => x.id === nodeId);
+      if (!n) {
+        LEARN_ERR('❌ 节点未找到', { nodeId, availableNodeIds: nodes.map(x => x.id).slice(0, 10), totalNodes: nodes.length });
+        return;
       }
+      LEARN_LOG('✅ 节点命中', { id: n.id, title: n.title, category: n.category });
+
+      try {
+        closeLearning();
+        LEARN_LOG('🔒 closeLearning() done');
+      } catch (err) {
+        LEARN_ERR('closeLearning 异常', err);
+      }
+
+      try {
+        resetView();
+        LEARN_LOG('🔄 resetView() done');
+      } catch (err) {
+        LEARN_ERR('resetView 异常', err);
+      }
+
+      setTimeout(() => {
+        try {
+          openPanel(n);
+          const elapsed = (performance.now() - t0).toFixed(1);
+          LEARN_LOG(`🎯 openPanel(${n.id}) done · 耗时 ${elapsed}ms`, { panelClass: document.getElementById('panel').className });
+        } catch (err) {
+          LEARN_ERR('openPanel 异常', { nodeId: n.id, err });
+        }
+      }, 100);
     });
   });
   container.querySelectorAll('.path-step').forEach(el => {
     el.addEventListener('click', () => {
-      const path = learningPaths[+el.dataset.path];
-      const step = path.steps[+el.dataset.step];
+      const t0 = performance.now();
+      const pathIdx = +el.dataset.path;
+      const stepIdx = +el.dataset.step;
+      const path = learningPaths[pathIdx];
+      const step = path.steps[stepIdx];
+      LEARN_LOG('🖱️ [path-step click]', { pathIdx, stepIdx, pathTitle: path.title, stepTitle: step.title, nodeIds: step.nodes });
+
+      const hits = [];
+      const misses = [];
+      step.nodes.forEach(nid => {
+        const n = nodes.find(x => x.id === nid);
+        if (n) hits.push(n.id);
+        else misses.push(nid);
+      });
+      LEARN_LOG('📊 节点匹配结果', { hits: hits.length, misses: misses.length, missList: misses });
+
       closeLearning();
       resetView();
       setTimeout(() => {
-        step.nodes.forEach(nid => {
+        hits.forEach(nid => {
           const n = nodes.find(x => x.id === nid);
-          if (n) applyHighlight(n);
+          if (n) {
+            applyHighlight(n);
+            LEARN_LOG('✨ applyHighlight', { id: n.id, title: n.title });
+          }
         });
+        LEARN_LOG(`⏱️ 步骤高亮完成 · 耗时 ${(performance.now() - t0).toFixed(1)}ms`);
       }, 200);
     });
   });
 }
 
 function openLearning() {
-  renderLearningPaths();
-  document.getElementById('learning-overlay').classList.add('open');
-}
-function closeLearning() {
-  document.getElementById('learning-overlay').classList.remove('open');
+  const t0 = performance.now();
+  LEARN_LOG('📂 openLearning() 被调用', {
+    overlayExists: !!document.getElementById('learning-overlay'),
+    containerExists: !!document.getElementById('learning-path'),
+    learningPathsCount: learningPaths.length
+  });
+  try {
+    renderLearningPaths();
+    const el = document.getElementById('learning-overlay');
+    el.classList.add('open');
+    const renderedSteps = document.querySelectorAll('.path-step').length;
+    const renderedNodes = document.querySelectorAll('.step-node').length;
+    LEARN_LOG(`✅ overlay 打开 · 渲染 ${renderedSteps} 个步骤 / ${renderedNodes} 个节点标签 · 耗时 ${(performance.now() - t0).toFixed(1)}ms`);
+  } catch (err) {
+    LEARN_ERR('openLearning 异常', err);
+  }
 }
 
-document.getElementById('learning-btn').addEventListener('click', openLearning);
-document.getElementById('learning-close').addEventListener('click', closeLearning);
+function closeLearning() {
+  const overlay = document.getElementById('learning-overlay');
+  const wasOpen = overlay && overlay.classList.contains('open');
+  if (overlay) overlay.classList.remove('open');
+  LEARN_LOG('📕 closeLearning()', { wasOpen });
+}
+
+document.getElementById('learning-btn').addEventListener('click', e => {
+  LEARN_LOG('🔘 [learning-btn click]', {
+    btnId: e.currentTarget.id,
+    ariaLabel: e.currentTarget.getAttribute('aria-label'),
+    target: e.target.tagName,
+    currentTarget: e.currentTarget.tagName
+  });
+  openLearning();
+});
+document.getElementById('learning-close').addEventListener('click', e => {
+  LEARN_LOG('🔘 [learning-close click]', { target: e.target.id });
+  closeLearning();
+});
 document.getElementById('learning-overlay').addEventListener('click', e => {
-  if (e.target.id === 'learning-overlay') closeLearning();
+  if (e.target.id === 'learning-overlay') {
+    LEARN_LOG('🔘 [overlay 背景点击]');
+    closeLearning();
+  }
 });
 
 // ── 图例筛选 ──────────────────────────────────────────────
