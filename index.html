@@ -327,6 +327,82 @@ canvas { position: fixed; top: 0; left: 0; pointer-events: none; z-index: 0; }
 }
 .search-empty { text-align: center; color: #64748B; font-size: 13px; padding: 40px 20px; }
 .search-hint { font-size: 11px; color: #475569; padding: 12px 4px; }
+.sr-snippet mark { background: rgba(245,158,11,0.3); color: #FBBF24; padding: 1px 2px; border-radius: 2px; }
+.sr-title mark { background: rgba(245,158,11,0.3); color: #FBBF24; padding: 1px 2px; border-radius: 2px; }
+
+/* 学习路径入口按钮 */
+#learning-btn {
+  position: fixed; right: 16px; bottom: 16px;
+  width: 50px; height: 50px; border-radius: 50%;
+  background: linear-gradient(135deg, #06B6D4, #3B82F6);
+  color: #fff; font-size: 22px; border: none; cursor: pointer;
+  box-shadow: 0 4px 16px rgba(6,182,212,0.4);
+  z-index: 90; transition: transform 0.15s;
+  display: flex; align-items: center; justify-content: center;
+}
+#learning-btn:active { transform: scale(0.92); }
+
+/* 学习路径 overlay */
+#learning-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.85);
+  z-index: 200; display: none; overflow-y: auto;
+  backdrop-filter: blur(8px);
+}
+#learning-overlay.open { display: block; }
+.learning-container {
+  max-width: 720px; margin: 0 auto; padding: 24px 20px 60px;
+  color: #E2E8F0;
+}
+.learning-header {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 24px;
+}
+.learning-title { font-size: 22px; font-weight: 700; color: #F1F5F9; }
+.learning-close {
+  width: 36px; height: 36px; border-radius: 50%;
+  background: rgba(255,255,255,0.1); border: none; color: #fff;
+  font-size: 18px; cursor: pointer;
+}
+.learning-intro {
+  background: rgba(6,182,212,0.08);
+  border: 1px solid rgba(6,182,212,0.2);
+  border-radius: 10px; padding: 14px 16px;
+  font-size: 13px; line-height: 1.6; color: #94A3B8;
+  margin-bottom: 24px;
+}
+.learning-path {
+  display: flex; flex-direction: column; gap: 12px;
+}
+.path-step {
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-left: 3px solid var(--step-color, #06B6D4);
+  border-radius: 8px; padding: 14px 16px;
+  cursor: pointer; transition: background 0.15s;
+}
+.path-step:active { background: rgba(255,255,255,0.08); }
+.step-num {
+  display: inline-block; font-size: 10px; padding: 2px 8px;
+  background: rgba(255,255,255,0.1); border-radius: 10px;
+  margin-right: 8px; font-weight: 600;
+}
+.step-title { font-size: 15px; font-weight: 600; color: #F1F5F9; margin: 4px 0; }
+.step-desc { font-size: 12px; color: #94A3B8; line-height: 1.5; }
+.step-nodes {
+  margin-top: 8px; display: flex; flex-wrap: wrap; gap: 6px;
+}
+.step-node {
+  font-size: 11px; padding: 3px 8px;
+  background: rgba(255,255,255,0.06); border-radius: 10px;
+  color: #CBD5E1;
+}
+
+/* 节点最后更新日期 */
+.node-meta {
+  font-size: 11px; color: #64748B; margin-top: 12px;
+  padding-top: 12px; border-top: 1px dashed rgba(255,255,255,0.08);
+  display: flex; gap: 12px; flex-wrap: wrap;
+}
 
 /* 拖动 */
 #universe { cursor: grab; }
@@ -344,7 +420,23 @@ canvas { position: fixed; top: 0; left: 0; pointer-events: none; z-index: 0; }
   <button id="search-close" aria-label="关闭搜索">✕</button>
   <input id="search-input" type="search" placeholder="输入关键词，如 CRS、信托、837号令…" autocomplete="off" autocapitalize="off" autocorrect="off">
   <div id="search-results">
-    <div class="search-hint">支持搜索节点标题、分类、标签和正文内容。</div>
+    <div class="search-hint">支持搜索节点标题、分类、标签和正文内容。<br>试试搜索"37号文""CRS""BVI""信托""汇率风险"</div>
+  </div>
+</div>
+
+<button id="learning-btn" aria-label="学习路径">📚</button>
+
+<div id="learning-overlay">
+  <div class="learning-container">
+    <div class="learning-header">
+      <div class="learning-title">学习路径</div>
+      <button class="learning-close" id="learning-close" aria-label="关闭">✕</button>
+    </div>
+    <div class="learning-intro">
+      跨境金融知识图谱有88个节点，从零开始可以按下面顺序学习。<br>
+      每一步点击节点标签会跳转到对应节点详情；点击步骤会筛选图谱。
+    </div>
+    <div class="learning-path" id="learning-path"></div>
   </div>
 </div>
 
@@ -562,7 +654,7 @@ const nodes = [
     size: 36, color: '#3B82F6', glow: 'rgba(59,130,246,0.3)',
     parent: 'structure', category: '架构工具',
     title: '信托 Trust',
-    body: `把资产的<strong>所有权</strong>和<strong>受益权</strong>分开给不同的人。\n\n三个角色：\n· 委托人(Settlor)：原资产所有者，把资产放进来\n· 受托人(Trustee)：法律上的新所有人，专业信托公司担任\n· 受益人(Beneficiary)：实际享受收益的人\n\n<strong>三大用途：</strong>\n1. 资产保护：债务/离婚财产隔离\n2. 代际传承：跳过遗嘱认证，按预设规则分配\n3. 隐私：公开记录只见受托人，不见个人\n\n<strong>常见误区：</strong>\n· 信托不是避税工具，CRS会穿透到受益人\n· 委托人保留太多控制权，信托可能被认定无效\n\n常见地：开曼、BVI、泽西岛`,
+    body: `把资产的<strong>所有权</strong>和<strong>受益权</strong>分开给不同的人。\n\n三个角色：\n· 委托人(Settlor)：原资产所有者，把资产放进来\n· 受托人(Trustee)：法律上的新所有人，专业信托公司担任\n· 受益人(Beneficiary)：实际享受收益的人\n\n<strong>三大用途：</strong>\n1. 资产保护：债务/离婚财产隔离\n2. 代际传承：跳过遗嘱认证，按预设规则分配\n3. 隐私：公开记录只见受托人，不见个人\n\n<strong>常见误区：</strong>\n· 信托不是避税工具，CRS会穿透到受益人\n· 委托人保留太多控制权，信托可能被认定无效\n\n常见地：开曼、BVI、泽西岛\n\n<strong>💼 顾问实操提示：</strong>\n· <strong>遇到"高净值客户想用信托"的需求时：</strong>先明确目的——资产保护/传承/隐私/税务四选一（或组合），不同目的对应不同信托结构（可撤销/不可撤销/朝代信托/慈善信托等）。\n· <strong>必须提醒：</strong>① 信托不是万能避税工具——中国对"无合理商业目的的境外信托"有穿透规则；② 委托人保留过多控制权（撤换权/指示权）可能让信托被"穿透"；③ 设立成本通常3-10万美元+年费。\n· <strong>转介时机：</strong>涉及高净值传承规划、跨国资产保护架构设计，必须转介信托专业律所（如Harneys、Maples、Walkers）。`,
     tags: ['传承规划', '资产保护', '高净值']
   },
   {
@@ -620,7 +712,7 @@ const nodes = [
     size: 32, color: '#EC4899', glow: 'rgba(236,72,153,0.3)',
     parent: 'compliance', category: '监管合规',
     title: '37号文（汇发[2014]37号）',
-    body: `全称：《国家外汇管理局关于境内居民通过特殊目的公司境外投融资及返程投资外汇管理有关问题的通知》\n\n<strong>简单说：</strong>中国自然人想通过境外SPV（BVI/开曼等）做投融资或返程投资，必须先到外汇局/银行办这个登记。\n\n<strong>为什么重要：</strong>\n没办37号文 → 返程投资资金进不来 → 利润分红汇不出 → 上市前要补登记（可能影响上市进程）→ 还可能被罚款（案例：违规被罚1811万元）\n\n这是红筹架构、任何境外SPV持股架构绕不开的第一道合规关卡。\n\n<strong>适用对象：</strong>境内居民（中国籍个人，或习惯居住在境内的境外人士）`,
+    body: `全称：《国家外汇管理局关于境内居民通过特殊目的公司境外投融资及返程投资外汇管理有关问题的通知》\n\n<strong>简单说：</strong>中国自然人想通过境外SPV（BVI/开曼等）做投融资或返程投资，必须先到外汇局/银行办这个登记。\n\n<strong>为什么重要：</strong>\n没办37号文 → 返程投资资金进不来 → 利润分红汇不出 → 上市前要补登记（可能影响上市进程）→ 还可能被罚款（案例：违规被罚1811万元）\n\n这是红筹架构、任何境外SPV持股架构绕不开的第一道合规关卡。\n\n<strong>适用对象：</strong>境内居民（中国籍个人，或习惯居住在境内的境外人士）\n\n<strong>💼 顾问实操提示：</strong>\n· <strong>遇到"中国个人要搭建境外架构"时：</strong>37号文登记是第一步，在设立任何SPV之前就要办；建议客户先做身份规划（变更税居/拿永居），再回来办登记会顺畅很多。\n· <strong>必须提醒：</strong>"我朋友用BVI公司收了钱没事"≠你没事——银行对存量SPV的尽调越来越严，2024年起多家中资行已要求存量37号文登记补办。\n· <strong>转介时机：</strong>涉及上市前历史搭建补救、罚款申诉的，立即转介专业律师事务所（外汇登记争议属专项领域）。`,
     tags: ['外汇局', '必办', '个人出海前置']
   },
   {
@@ -636,7 +728,7 @@ const nodes = [
     size: 32, color: '#EC4899', glow: 'rgba(236,72,153,0.3)',
     parent: 'compliance', category: '监管合规',
     title: 'CRS 共同申报准则',
-    body: `OECD推出的<strong>全球金融账户信息自动交换</strong>标准，目标是堵住"开个离岸账户就能避税"的漏洞。\n\n<strong>机制：</strong>\n金融机构识别"非本国税务居民"账户 → 报给本国税务机关 → 自动交换给账户持有人税籍所在国\n\n<strong>现状：</strong>\n已有120+国家承诺实施。中国2025年起税务机关已开始依据CRS数据要求境外收入申报，从"签署"进入"实操核查"阶段。\n\n<strong>CRS 2.0（2026年起）：</strong>\n把电子货币和央行数字货币(CBDC)纳入申报范围，定义扩大。\n\n<strong>CARF（加密资产报告框架）：</strong>\n专门针对加密货币，预计2027年并入CRS体系，交易所将成为申报主体。`,
+    body: `OECD推出的<strong>全球金融账户信息自动交换</strong>标准，目标是堵住"开个离岸账户就能避税"的漏洞。\n\n<strong>机制：</strong>\n金融机构识别"非本国税务居民"账户 → 报给本国税务机关 → 自动交换给账户持有人税籍所在国\n\n<strong>现状：</strong>\n已有120+国家承诺实施。中国2025年起税务机关已开始依据CRS数据要求境外收入申报，从"签署"进入"实操核查"阶段。\n\n<strong>CRS 2.0（2026年起）：</strong>\n把电子货币和央行数字货币(CBDC)纳入申报范围，定义扩大。\n\n<strong>CARF（加密资产报告框架）：</strong>\n专门针对加密货币，预计2027年并入CRS体系，交易所将成为申报主体。\n\n<strong>💼 顾问实操提示：</strong>\n· <strong>遇到中国税居民境外有资产时：</strong>先确认客户的"税务居民身份"（而非国籍/居住地），CRS是按税籍交换的。\n· <strong>必须提醒：</strong>境外账户信息已自动交换到中国税务局，不要"装不知道"；2025年起大数据比对已常态化，违规补税+滞纳金+罚款三件套。\n· <strong>转介时机：</strong>涉及复杂海外资产补税/历史违规自查的，立即转介税务师协助合规化处理。`,
     tags: ['信息交换', '120+国家', '无法回避']
   },
   {
@@ -908,7 +1000,7 @@ const nodes = [
     size: 34, color: '#F97316', glow: 'rgba(249,115,22,0.3)',
     parent: 'regions', category: '地区监管',
     title: '新加坡 Singapore',
-    body: `亚洲财富管理中心。\n\n<strong>税制：</strong>\n· 企业所得税17%(新公司前3年部分豁免)\n· 个人所得税最高22%\n· 无资本利得税/遗产税\n· GST 9%\n\n<strong>家办：</strong>\n· 13O：≥1000万新币\n· 13U：≥5000万新币\n· 基金收益免税\n\n<strong>公司：</strong>ACRA注册，须有本地董事\n\n<strong>金融：</strong>MAS综合监管，牌照体系清晰\n\n<strong>VCC(可变资本公司2020)：</strong>专为基金设计的新载体\n\n新加坡PR：基础教育+安全+华人环境，是高净值客户移居首选`,
+    body: `亚洲财富管理中心。\n\n<strong>税制：</strong>\n· 企业所得税17%(新公司前3年部分豁免)\n· 个人所得税最高22%\n· 无资本利得税/遗产税\n· GST 9%\n\n<strong>家办：</strong>\n· 13O：≥1000万新币\n· 13U：≥5000万新币\n· 基金收益免税\n\n<strong>公司：</strong>ACRA注册，须有本地董事\n\n<strong>金融：</strong>MAS综合监管，牌照体系清晰\n\n<strong>VCC(可变资本公司2020)：</strong>专为基金设计的新载体\n\n新加坡PR：基础教育+安全+华人环境，是高净值客户移居首选\n\n<strong>💼 顾问实操提示：</strong>\n· <strong>遇到"客户想移民+税务规划"需求时：</strong>新加坡是常见目的地但不是万能解——客户拿PR前要做身份/资产/税务三重规划，避免触发中国税局"弃籍清税"和新加坡"全球征税"的衔接问题。\n· <strong>必须提醒：</strong>① 13O/13U家办优惠2024年起MAS审查趋严（要求本地投资/就业人数），不要承诺一定能批；② 新加坡无资本利得税但有"推定收入"规则，数字货币/外国信托分配可能被征税；③ 公司须有本地董事，挂名董事有风险。\n· <strong>转介时机：</strong>涉及移民申请、13O/13U申报、家族资产注入规划，转介新加坡持牌移民顾问+本地律所。`,
     tags: ['17%', '家办', 'VCC']
   },
   {
@@ -916,7 +1008,7 @@ const nodes = [
     size: 32, color: '#F97316', glow: 'rgba(249,115,22,0.3)',
     parent: 'regions', category: '地区监管',
     title: 'BVI / 开曼 Cayman',
-    body: `两大主流离岸中心。\n\n<strong>BVI：</strong>\n· BC(商业公司)：最普及的持股载体\n· 成本低，年费便宜\n· 适合：个人持股/SPV\n\n<strong>开曼：</strong>\n· 豁免公司(Exempted)：上市主体首选\n· ELP(有限合伙)：基金主体\n· SPC(独立组合公司)：伞形基金\n\n<strong>共同特点：</strong>\n· 零税率(仅年费)\n· 严格保密(但CRS穿透)\n· 经济实质(ESR)要求\n· 中国"黑/灰名单"风险\n\n<strong>选BVI还是开曼：</strong>\n持股用BVI；上市/基金用开曼`,
+    body: `两大主流离岸中心。\n\n<strong>BVI：</strong>\n· BC(商业公司)：最普及的持股载体\n· 成本低，年费便宜\n· 适合：个人持股/SPV\n\n<strong>开曼：</strong>\n· 豁免公司(Exempted)：上市主体首选\n· ELP(有限合伙)：基金主体\n· SPC(独立组合公司)：伞形基金\n\n<strong>共同特点：</strong>\n· 零税率(仅年费)\n· 严格保密(但CRS穿透)\n· 经济实质(ESR)要求\n· 中国"黑/灰名单"风险\n\n<strong>选BVI还是开曼：</strong>\n持股用BVI；上市/基金用开曼\n\n<strong>💼 顾问实操提示：</strong>\n· <strong>遇到"用BVI/开曼避税"的需求时：</strong>先帮客户算"实际税负"——单纯零税率已不构成优势（受CFC和受益所有人限制），架构是否合理要看"商业实质+税务效率"组合。\n· <strong>必须提醒：</strong>① ESR要求2019年起强制，不满足可能被罚款或注销；② 中国对BVI/开曼的"低税地"判定可能触发CFC规则；③ 上市架构需预留6-12个月重组时间。\n· <strong>转介时机：</strong>涉及CFC合规争议、经济实质法案应对、上市重组，立即转介离岸律师事务所+四大会计师事务所联合方案。`,
     tags: ['零税', 'ESR', '保密']
   },
   {
@@ -966,7 +1058,7 @@ const nodes = [
     size: 32, color: '#06B6D4', glow: 'rgba(6,182,212,0.3)',
     parent: 'macro', category: '宏观经济',
     title: '汇率 Exchange Rate',
-    body: `两种货币的兑换比率——国际贸易和资本流动的核心价格。\n\n<strong>汇率制度：</strong>\n· 固定汇率：盯住美元/欧元，稳定但丧失货币政策独立性\n· 浮动汇率：市场供求决定，波动大\n· 有管理浮动（中国）：中间价+波动区间+逆周期因子\n· 联系汇率（香港）：7.75-7.85盯住美元\n\n<strong>汇率决定理论：</strong>\n· 购买力平价(PPP)：同一商品在不同国家的价格比\n· 利率平价：利差=远期汇率差\n· 国际收支：贸易顺差国货币升值\n\n<strong>汇率标价：</strong>\n· 直接标价：1美元=7.2人民币（中国常用）\n· 间接标价：1人民币=0.139美元\n· 交叉汇率：通过第三货币套算\n\n<strong>影响汇率的因素：</strong>\n利率差、贸易差额、通胀差、资本流动、央行干预、政治事件\n\n<strong>跨境关联：</strong>\n汇率对冲工具（远期结售汇/期权）成本通常年化1-3%；人民币贬值→境外资产增值；香港联系汇率意味着港币≈美元。`,
+    body: `两种货币的兑换比率——国际贸易和资本流动的核心价格。\n\n<strong>汇率制度：</strong>\n· 固定汇率：盯住美元/欧元，稳定但丧失货币政策独立性\n· 浮动汇率：市场供求决定，波动大\n· 有管理浮动（中国）：中间价+波动区间+逆周期因子\n· 联系汇率（香港）：7.75-7.85盯住美元\n\n<strong>汇率决定理论：</strong>\n· 购买力平价(PPP)：同一商品在不同国家的价格比\n· 利率平价：利差=远期汇率差\n· 国际收支：贸易顺差国货币升值\n\n<strong>汇率标价：</strong>\n· 直接标价：1美元=7.2人民币（中国常用）\n· 间接标价：1人民币=0.139美元\n· 交叉汇率：通过第三货币套算\n\n<strong>影响汇率的因素：</strong>\n利率差、贸易差额、通胀差、资本流动、央行干预、政治事件\n\n<strong>跨境关联：</strong>\n汇率对冲工具（远期结售汇/期权）成本通常年化1-3%；人民币贬值→境外资产增值；香港联系汇率意味着港币≈美元。\n\n<strong>💼 顾问实操提示：</strong>\n· <strong>遇到"客户境外资产汇率风险"问题时：</strong>先算"未对冲敞口"——多少资金在汇率波动下不受保护？一般建议长期资产对冲30-70%，具体看客户风险偏好。\n· <strong>必须提醒：</strong>① 远期结售汇成本约年化1-3%，期权更贵（3-5%），不要承诺"零成本对冲"；② 港币联系汇率意味着港币资产≈美元资产，但有脱钩尾部风险（概率低但不为零）；③ ODI项目必须做汇率敏感性分析。\n· <strong>转介时机：</strong>涉及大额对外投资（>1000万美元）的汇率对冲方案、外汇衍生品交易，立即转介银行外汇衍生品交易员/专业汇率咨询机构。`,
     tags: ['CNY/USD', '有管理浮动', '联系汇率']
   },
   {
@@ -1032,7 +1124,7 @@ const nodes = [
     size: 32, color: '#14B8A6', glow: 'rgba(20,184,166,0.3)',
     parent: 'corpfin', category: '公司金融',
     title: '估值 Valuation',
-    body: `给企业定价的艺术与科学——投行/PE/VC的核心技能。\n\n<strong>三大方法：</strong>\n1. DCF(现金流折现)：最严谨，依赖假设，适合成熟稳定公司\n2. 可比公司法(Comps)：对标同行估值倍数，市场驱动\n3. 先例交易法(Precedent Transactions)：参考历史并购成交价，含控制权溢价\n\n<strong>DCF 核心公式：</strong>\n企业价值 = Σ [FCFt / (1+WACC)^t] + 终值 / (1+WACC)^n\n自由现金流(FCF) = EBIT×(1-税率) + 折旧摊销 - 资本支出 - 营运资本变动\n\n<strong>WACC(加权平均资本成本)：</strong>\n= 股权成本×股权比例 + 债务成本×(1-税率)×债务比例\n· 美元资产：无风险利率用10年期美债\n· 人民币资产：用10年期中国国债收益率（不要混用美债）\n\n<strong>关键倍数（务必区分口径）：</strong>\n· P/E (TTM)：基于过去12个月已实现利润（最常用）\n· P/E (NTM)：基于未来12个月预测利润（并购常用）\n· EV/EBITDA：企业价值倍数，剔除资本结构差异，最常用于并购\n· P/B：市净率（金融股常用）\n· P/S：市销率（亏损公司用）\n· PEG：PE/增长率（成长股用）\n\n<strong>估值难点：</strong>\n增长率假设、终值计算、折现率选择——估值结果对假设极度敏感`,
+    body: `给企业定价的艺术与科学——投行/PE/VC的核心技能。\n\n<strong>三大方法：</strong>\n1. DCF(现金流折现)：最严谨，依赖假设，适合成熟稳定公司\n2. 可比公司法(Comps)：对标同行估值倍数，市场驱动\n3. 先例交易法(Precedent Transactions)：参考历史并购成交价，含控制权溢价\n\n<strong>DCF 核心公式：</strong>\n企业价值 = Σ [FCFt / (1+WACC)^t] + 终值 / (1+WACC)^n\n自由现金流(FCF) = EBIT×(1-税率) + 折旧摊销 - 资本支出 - 营运资本变动\n\n<strong>WACC(加权平均资本成本)：</strong>\n= 股权成本×股权比例 + 债务成本×(1-税率)×债务比例\n· 美元资产：无风险利率用10年期美债\n· 人民币资产：用10年期中国国债收益率（不要混用美债）\n\n<strong>关键倍数（务必区分口径）：</strong>\n· P/E (TTM)：基于过去12个月已实现利润（最常用）\n· P/E (NTM)：基于未来12个月预测利润（并购常用）\n· EV/EBITDA：企业价值倍数，剔除资本结构差异，最常用于并购\n· P/B：市净率（金融股常用）\n· P/S：市销率（亏损公司用）\n· PEG：PE/增长率（成长股用）\n\n<strong>估值难点：</strong>\n增长率假设、终值计算、折现率选择——估值结果对假设极度敏感\n\n<strong>💼 顾问实操提示：</strong>\n· <strong>遇到"客户对标的估值合理性"问题时：</strong>先确认用的是什么倍数（P/E TTM还是NTM？EV/EBITDA？），不同口径的"行业平均"差异可达2-3倍。\n· <strong>必须提醒：</strong>① DCF的"精确"是假象——增长率±1%、WACC±1%可使估值变化±20%；② 跨境估值要加汇率风险溢价（约2-5%）；③ 同一标的使用三种方法，结果差异30-50%是正常的，要看权重。\n· <strong>转介时机：</strong>涉及上市公司股权交易、跨境并购对价确认、税务转让定价的估值，必须由四大会计师事务所或专业评估机构出具报告。`,
     tags: ['DCF', 'EV/EBITDA', '可比法']
   },
   {
@@ -1040,7 +1132,7 @@ const nodes = [
     size: 30, color: '#14B8A6', glow: 'rgba(20,184,166,0.25)',
     parent: 'corpfin', category: '公司金融',
     title: '资本结构 Capital Structure',
-    body: `企业的钱从哪来——股权与债权的比例配置。\n\n<strong>核心理论：</strong>\n· MM定理(1958, 无税)：资本结构不影响公司价值——奠基性命题\n· MM定理(1963, 有税)：负债有税盾优势→100%负债最优（不现实）\n· 权衡理论：税盾收益 vs 破产成本，存在最优负债率\n· 优序融资理论(Pecking Order)：内部融资→债务→股权（信息不对称）\n· 代理理论：负债约束管理层乱花钱\n\n<strong>WACC(加权平均资本成本)：</strong>\nWACC = 股权成本×E/(D+E) + 债务成本×(1-税率)×D/(D+E)\n负债率↑→股权成本↑（风险↑）→ WACC先↓后↑，存在最优点\n\n<strong>实务影响因素：</strong>\n· 行业特征（公用事业高负债，科技股低负债）\n· 税率（税率高→税盾价值大→倾向负债）\n· 资产结构（有形资产多→可抵押→负债能力强）\n· 盈利稳定性（稳定→可承担更高负债）\n· 宏观环境（利率低→发债便宜）\n\n<strong>资本结构决策：</strong>\n目标资本结构、最优负债率、财务弹性\n\n<strong>跨境关联：</strong>\n不同地区税率不同→资本结构最优化设计→转让定价+CFC规则联动。`,
+    body: `企业的钱从哪来——股权与债权的比例配置。\n\n<strong>核心理论：</strong>\n· MM定理(1958, 无税)：资本结构不影响公司价值——奠基性命题\n· MM定理(1963, 有税)：负债有税盾优势→100%负债最优（不现实）\n· 权衡理论：税盾收益 vs 破产成本，存在最优负债率\n· 优序融资理论(Pecking Order)：内部融资→债务→股权（信息不对称）\n· 代理理论：负债约束管理层乱花钱\n\n<strong>WACC(加权平均资本成本)：</strong>\nWACC = 股权成本×E/(D+E) + 债务成本×(1-税率)×D/(D+E)\n负债率↑→股权成本↑（风险↑）→ WACC先↓后↑，存在最优点\n\n<strong>实务影响因素：</strong>\n· 行业特征（公用事业高负债，科技股低负债）\n· 税率（税率高→税盾价值大→倾向负债）\n· 资产结构（有形资产多→可抵押→负债能力强）\n· 盈利稳定性（稳定→可承担更高负债）\n· 宏观环境（利率低→发债便宜）\n\n<strong>资本结构决策：</strong>\n目标资本结构、最优负债率、财务弹性\n\n<strong>跨境关联：</strong>\n不同地区税率不同→资本结构最优化设计→转让定价+CFC规则联动。\n\n<strong>💼 顾问实操提示：</strong>\n· <strong>遇到"客户要做跨境融资架构"时：</strong>先画"资金流图"——钱从哪国LP/银行/股东来？最终用款国是哪？中间哪一层SPV持有？每一层的税率/利息税/预提税都会影响WACC。\n· <strong>必须提醒：</strong>① 中国对跨境债务有"宏观审慎"参数（境内子公司对境外母公司负债不能超过所有者权益的X%）；② 境外SPV的发债利息能否在境内税前扣除，取决于"受益所有人"和"独立交易原则"；③ 过度依赖境外债务可能触发外汇局/发改委审查。\n· <strong>转介时机：</strong>涉及跨境发债、跨境银团贷款、内保外贷方案设计的，必须有银行/投行+境外律师+境内税务师联合参与。`,
     tags: ['WACC', 'MM定理', '税盾']
   },
   {
@@ -1048,7 +1140,7 @@ const nodes = [
     size: 30, color: '#14B8A6', glow: 'rgba(20,184,166,0.25)',
     parent: 'corpfin', category: '公司金融',
     title: 'IPO 首次公开发行',
-    body: `企业第一次向公众出售股票——从私人公司变为公众公司的关键节点。\n\n<strong>上市动机：</strong>\n· 融资（最重要的渠道之一）\n· 流动性（原股东可变现）\n· 估值（公开市场定价）\n· 品牌效应\n· 员工激励（股权可流通）\n· 并购货币（股票可作支付工具）\n\n<strong>流程：</strong>\n1. 选择保荐人/承销商(投行)\n2. 尽职调查 + 撰写招股书\n3. 证监会审核（注册制/核准制）\n4. 路演(Roadshow) + 簿记建档\n5. 定价\n6. 挂牌交易\n\n<strong>定价机制：</strong>\n· 询价制（中国A股）：机构投资者报价\n· 竞价制（美国常用）：簿记建档\n· 直接上市（Spotify模式）：不融资，原股东流通\n\n<strong>上市后：</strong>\n· 锁定期（控股股东通常36个月）\n· 信息披露（季报/年报）\n· 市值管理\n· 减持规则\n\n<strong>跨境上市架构：</strong>\n· H股（境内企业→港交所）\n· 红筹架构（境外SPV上市）\n· VIE架构（协议控制，规避外资准入）\n· 中概股回归（港股二次上市/双重主要上市）`,
+    body: `企业第一次向公众出售股票——从私人公司变为公众公司的关键节点。\n\n<strong>上市动机：</strong>\n· 融资（最重要的渠道之一）\n· 流动性（原股东可变现）\n· 估值（公开市场定价）\n· 品牌效应\n· 员工激励（股权可流通）\n· 并购货币（股票可作支付工具）\n\n<strong>流程：</strong>\n1. 选择保荐人/承销商(投行)\n2. 尽职调查 + 撰写招股书\n3. 证监会审核（注册制/核准制）\n4. 路演(Roadshow) + 簿记建档\n5. 定价\n6. 挂牌交易\n\n<strong>定价机制：</strong>\n· 询价制（中国A股）：机构投资者报价\n· 竞价制（美国常用）：簿记建档\n· 直接上市（Spotify模式）：不融资，原股东流通\n\n<strong>上市后：</strong>\n· 锁定期（控股股东通常36个月）\n· 信息披露（季报/年报）\n· 市值管理\n· 减持规则\n\n<strong>跨境上市架构：</strong>\n· H股（境内企业→港交所）\n· 红筹架构（境外SPV上市）\n· VIE架构（协议控制，规避外资准入）\n· 中概股回归（港股二次上市/双重主要上市）\n\n<strong>💼 顾问实操提示：</strong>\n· <strong>遇到"客户考虑上市"的需求时：</strong>先问两个问题：① 上市目的是融资/套现/品牌？② 当前架构是否能装入上市实体？未做跨境架构的公司，VIE搭建通常需12-18个月。\n· <strong>必须提醒：</strong>① VIE架构的合规风险持续（境内运营公司利润通过独家服务协议转移给WFOE）；② 中概股面临PCAOB审计监管，不合规可能被强制退市；③ 创始人个人37号文登记是上市前必查项。\n· <strong>转介时机：</strong>一旦进入Pre-IPO阶段（拟18个月内申报），必须引入保荐人/承销商+境外律师+审计师联合团队。`,
     tags: ['上市', '红筹', '保荐人']
   },
   {
@@ -1406,6 +1498,7 @@ function openPanel(n) {
     });
     html += '</div>';
   }
+  html += '<div class="node-meta"><span>📅 最后更新：2026-08</span><span>🔗 关联节点：见上方跨模块连线</span></div>';
   document.getElementById('panel-body').innerHTML = html;
   panel.classList.add('open');
 }
@@ -1438,40 +1531,91 @@ function closeSearch() {
 searchBtn.addEventListener('click', openSearch);
 searchClose.addEventListener('click', closeSearch);
 
-// 简单全文搜索：匹配标题、分类、标签、正文
+// 全文搜索：标题/分类/标签/正文 + 分词+TF-IDF排序 + 关键字高亮
 function performSearch(q) {
-  q = q.trim().toLowerCase();
+  q = q.trim();
   if (!q) {
-    searchResults.innerHTML = '<div class="search-hint">支持搜索节点标题、分类、标签和正文内容。</div>';
+    searchResults.innerHTML = '<div class="search-hint">支持搜索节点标题、分类、标签和正文内容。<br>试试搜索"37号文""CRS""BVI""信托""汇率风险"等关键词</div>';
     return;
   }
-  const matches = nodes.filter(n => {
-    const hay = [
-      n.title, n.category, n.label,
-      (n.tags || []).join(' '),
-      n.body.replace(/<[^>]+>/g, ' ')
-    ].join(' ').toLowerCase();
-    return hay.includes(q);
-  });
+  const qLower = q.toLowerCase();
+  const tokens = q.split(/[\s,，。;;,,!?？]+/).filter(t => t.length > 0);
+  const chars = q.split('').filter(c => /[\u4e00-\u9fa5]/.test(c));
 
-  if (matches.length === 0) {
-    searchResults.innerHTML = `<div class="search-empty">没有找到包含"${q}"的节点</div>`;
-    return;
-  }
-
-  searchResults.innerHTML = matches.map(n => {
+  const scored = nodes.map(n => {
+    const titleL = n.title.toLowerCase();
+    const labelL = n.label.toLowerCase();
+    const catL = n.category.toLowerCase();
+    const tagsL = (n.tags || []).join(' ').toLowerCase();
     const plain = n.body.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
-    const idx = plain.toLowerCase().indexOf(q);
-    let snippet = plain.slice(Math.max(0, idx - 20), idx + 80);
-    if (idx > 20) snippet = '…' + snippet;
+    const plainL = plain.toLowerCase();
+
+    let score = 0;
+    if (titleL.includes(qLower)) score += 100;
+    if (tagsL.includes(qLower)) score += 50;
+    if (catL.includes(qLower)) score += 30;
+    if (labelL.includes(qLower)) score += 40;
+    tokens.forEach(t => {
+      const tL = t.toLowerCase();
+      if (titleL.includes(tL)) score += 30;
+      if (tagsL.includes(tL)) score += 15;
+      if (plainL.includes(tL)) score += 10;
+    });
+    chars.forEach(c => {
+      if (titleL.includes(c)) score += 5;
+      if (plainL.includes(c)) score += 2;
+    });
+
+    return { node: n, score, plain };
+  }).filter(x => x.score > 0)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 30);
+
+  if (scored.length === 0) {
+    searchResults.innerHTML = `<div class="search-empty">没有找到包含"${q}"的节点<br><br>试试更短或更通用的关键词</div>`;
+    return;
+  }
+
+  const escapeHtml = s => s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const highlight = s => {
+    let result = escapeHtml(s);
+    tokens.forEach(t => {
+      if (t.length > 1) {
+        const re = new RegExp('(' + t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')', 'gi');
+        result = result.replace(re, '<mark>$1</mark>');
+      }
+    });
+    chars.forEach(c => {
+      if (c.length === 1) {
+        result = result.replace(new RegExp(c, 'g'), '<mark>' + c + '</mark>');
+      }
+    });
+    return result;
+  };
+
+  searchResults.innerHTML = scored.map(({node: n, plain}) => {
+    let bestIdx = 0;
+    let bestCount = -1;
+    const lowerPlain = plain.toLowerCase();
+    for (let i = 0; i < plain.length; i += 30) {
+      let cnt = 0;
+      tokens.forEach(t => {
+        if (lowerPlain.substr(i, 200).includes(t.toLowerCase())) cnt++;
+      });
+      chars.forEach(c => {
+        if (plain.substr(i, 200).includes(c)) cnt++;
+      });
+      if (cnt > bestCount) { bestCount = cnt; bestIdx = i; }
+    }
+    let snippet = plain.slice(Math.max(0, bestIdx - 20), bestIdx + 100);
+    if (bestIdx > 20) snippet = '…' + snippet;
     return `<div class="search-result" data-id="${n.id}">
       <div class="sr-cat" style="color:${n.color}">${n.category}</div>
-      <div class="sr-title">${n.title}</div>
-      <div class="sr-snippet">${snippet}</div>
+      <div class="sr-title">${highlight(n.title)}</div>
+      <div class="sr-snippet">${highlight(snippet)}</div>
     </div>`;
   }).join('');
 
-  // 点击结果跳转到节点
   searchResults.querySelectorAll('.search-result').forEach(el => {
     el.addEventListener('click', () => {
       const node = nodes.find(n => n.id === el.dataset.id);
@@ -1486,6 +1630,102 @@ function performSearch(q) {
 }
 
 searchInput.addEventListener('input', () => performSearch(searchInput.value));
+
+// ── 学习路径 ──────────────────────────────────────────────
+const learningPaths = [
+  {
+    title: '入门：从零搭建金融框架',
+    color: '#06B6D4',
+    steps: [
+      { num: 'STEP 1', title: '理解货币与银行', desc: '货币是金融的底层，先了解央行如何创造货币、银行如何放贷。', nodes: ['central-bank', 'monetary-policy', 'capital'] },
+      { num: 'STEP 2', title: '理解利率与债券', desc: '资金的时间价值。利率是所有资产定价的基础。', nodes: ['interest-rate', 'risk-management', 'capital-structure'] },
+      { num: 'STEP 3', title: '理解通胀与汇率', desc: '宏观经济两大关键变量，影响所有跨境交易。', nodes: ['inflation', 'fiscal-policy', 'exchange-rate'] },
+      { num: 'STEP 4', title: '理解股票与估值', desc: '股票 = 公司所有权。估值告诉你股价贵不贵。', nodes: ['invest', 'valuation', 'capm'] }
+    ]
+  },
+  {
+    title: '进阶：跨境金融全貌',
+    color: '#EC4899',
+    steps: [
+      { num: 'STEP 1', title: '合规底线：CRS / 37号文', desc: '跨境任何动作都绕不开的两条高压线。', nodes: ['crs', 'no37', 'cfc', 'fatca'] },
+      { num: 'STEP 2', title: '资金通道：ODI / QDII', desc: '钱怎么出去？三种主流方式。', nodes: ['odi', 'qdii', 'no37', 'fdi'] },
+      { num: 'STEP 3', title: '架构选择：BVI / 开曼 / 香港 / 新加坡', desc: '不同目的对应不同司法区。', nodes: ['bvi-cayman', 'hk', 'sg'] },
+      { num: 'STEP 4', title: '顶层工具：信托 / 保险 / 家族办公室', desc: '财富保全与传承的核心工具。', nodes: ['trust', 'insurance', 'fo'] }
+    ]
+  },
+  {
+    title: '专家：估值与资本运作',
+    color: '#14B8A6',
+    steps: [
+      { num: 'STEP 1', title: '三大估值方法', desc: 'DCF、可比法、先例交易法——交叉验证。', nodes: ['valuation', 'capm', 'redchip'] },
+      { num: 'STEP 2', title: '资本结构与融资', desc: '股权 vs 债务。WACC 是企业的考试分数线。', nodes: ['capital-structure', 'financing', 'risk-management'] },
+      { num: 'STEP 3', title: 'IPO 与并购', desc: '资本退出的两条主路。', nodes: ['ipo', 'redchip', 'vie'] },
+      { num: 'STEP 4', title: '基金与资产配置', desc: '从个人到机构的资产配置逻辑。', nodes: ['pefund', 'portfolio-theory', 'value-investing'] }
+    ]
+  }
+];
+
+function renderLearningPaths() {
+  const container = document.getElementById('learning-path');
+  container.innerHTML = learningPaths.map((path, pi) =>
+    '<div style="margin-bottom: 24px;">' +
+      '<div style="font-size: 13px; font-weight: 700; color: ' + path.color + '; margin-bottom: 10px; padding: 0 4px;">' + path.title + '</div>' +
+      path.steps.map((step, si) =>
+        '<div class="path-step" style="--step-color: ' + path.color + '" data-path="' + pi + '" data-step="' + si + '">' +
+          '<span class="step-num">' + step.num + '</span>' +
+          '<div class="step-title">' + step.title + '</div>' +
+          '<div class="step-desc">' + step.desc + '</div>' +
+          '<div class="step-nodes">' +
+            step.nodes.map(nid => {
+              const n = nodes.find(x => x.id === nid);
+              return n ? '<span class="step-node" data-node-id="' + nid + '" style="border:1px solid ' + n.color + '30">' + n.label.replace(/\n/g, ' ') + '</span>' : '';
+            }).join('') +
+          '</div>' +
+        '</div>'
+      ).join('') +
+    '</div>'
+  ).join('');
+
+  container.querySelectorAll('.step-node').forEach(el => {
+    el.addEventListener('click', e => {
+      e.stopPropagation();
+      const n = nodes.find(x => x.id === el.dataset.nodeId);
+      if (n) {
+        closeLearning();
+        resetView();
+        setTimeout(() => openPanel(n), 100);
+      }
+    });
+  });
+  container.querySelectorAll('.path-step').forEach(el => {
+    el.addEventListener('click', () => {
+      const path = learningPaths[+el.dataset.path];
+      const step = path.steps[+el.dataset.step];
+      closeLearning();
+      resetView();
+      setTimeout(() => {
+        step.nodes.forEach(nid => {
+          const n = nodes.find(x => x.id === nid);
+          if (n) applyHighlight(n);
+        });
+      }, 200);
+    });
+  });
+}
+
+function openLearning() {
+  renderLearningPaths();
+  document.getElementById('learning-overlay').classList.add('open');
+}
+function closeLearning() {
+  document.getElementById('learning-overlay').classList.remove('open');
+}
+
+document.getElementById('learning-btn').addEventListener('click', openLearning);
+document.getElementById('learning-close').addEventListener('click', closeLearning);
+document.getElementById('learning-overlay').addEventListener('click', e => {
+  if (e.target.id === 'learning-overlay') closeLearning();
+});
 
 // ── 图例筛选 ──────────────────────────────────────────────
 document.querySelectorAll('.legend-item').forEach(item => {
