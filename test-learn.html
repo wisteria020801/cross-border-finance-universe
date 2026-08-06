@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>学习路径自动化测试 · 金融知识宇宙</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", monospace;
+    background: #0B1120;
+    color: #E2E8F0;
+    margin: 0;
+    padding: 20px;
+    line-height: 1.5;
+  }
+  h1 { font-size: 20px; color: #06B6D4; margin: 0 0 8px; }
+  .subtitle { color: #64748B; font-size: 13px; margin-bottom: 20px; }
+  .panel {
+    background: #1E293B;
+    border: 1px solid #334155;
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 16px;
+  }
+  .panel h2 { font-size: 15px; margin: 0 0 12px; color: #F1F5F9; }
+  .controls { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+  button {
+    background: #06B6D4;
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    padding: 8px 14px;
+    font-size: 13px;
+    cursor: pointer;
+    font-weight: 600;
+  }
+  button.secondary { background: #475569; }
+  button.danger { background: #EF4444; }
+  button:hover { filter: brightness(1.1); }
+  button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  /* 结果表格 */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+  }
+  th, td {
+    text-align: left;
+    padding: 8px 10px;
+    border-bottom: 1px solid #334155;
+    vertical-align: top;
+  }
+  th { background: #0F172A; color: #94A3B8; font-weight: 600; }
+  tr.pass { background: rgba(34,197,94,0.05); }
+  tr.fail { background: rgba(239,68,68,0.05); }
+  tr.run { background: rgba(245,158,11,0.05); }
+  tr.skip { background: rgba(100,116,139,0.05); opacity: 0.6; }
+  .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 10px;
+    font-weight: 700;
+  }
+  .badge.pass { background: #22C55E; color: #fff; }
+  .badge.fail { background: #EF4444; color: #fff; }
+  .badge.run { background: #F59E0B; color: #000; }
+  .badge.skip { background: #64748B; color: #fff; }
+
+  /* 日志控制台 */
+  #console {
+    background: #000;
+    color: #94A3B8;
+    border-radius: 6px;
+    padding: 12px;
+    font-family: "SF Mono", "Consolas", monospace;
+    font-size: 11px;
+    line-height: 1.6;
+    max-height: 320px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    word-break: break-all;
+  }
+  #console .log-line { margin-bottom: 2px; }
+  #console .log-error { color: #FCA5A5; }
+  #console .log-warn { color: #FCD34D; }
+  #console .log-info { color: #7DD3FC; }
+  #console .log-ok { color: #86EFAC; }
+  #console .log-learn { color: #67E8F9; font-weight: 700; }
+
+  /* 摘要 */
+  .summary {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+  .summary-card {
+    background: #0F172A;
+    border: 1px solid #334155;
+    border-radius: 6px;
+    padding: 12px;
+    text-align: center;
+  }
+  .summary-num { font-size: 24px; font-weight: 700; }
+  .summary-label { font-size: 11px; color: #64748B; margin-top: 4px; }
+  .summary-card.ok .summary-num { color: #22C55E; }
+  .summary-card.err .summary-num { color: #EF4444; }
+  .summary-card.run .summary-num { color: #F59E0B; }
+  .summary-card.total .summary-num { color: #06B6D4; }
+
+  /* iframe 容器 */
+  #target-wrap {
+    position: relative;
+    height: 600px;
+    border: 1px solid #334155;
+    border-radius: 6px;
+    overflow: hidden;
+    margin-bottom: 12px;
+  }
+  #target { width: 100%; height: 100%; border: 0; background: #000; }
+  #target-status {
+    position: absolute; top: 8px; right: 8px;
+    background: rgba(0,0,0,0.7);
+    color: #86EFAC;
+    padding: 4px 10px;
+    border-radius: 10px;
+    font-size: 11px;
+    font-weight: 600;
+  }
+  #target-status.loading { color: #FCD34D; }
+  #target-status.error { color: #FCA5A5; }
+
+  code { background: #0F172A; padding: 1px 6px; border-radius: 3px; color: #67E8F9; }
+  .hint { color: #64748B; font-size: 12px; }
+</style>
+</head>
+<body>
+
+<h1>🧪 学习路径自动化测试</h1>
+<div class="subtitle">通过 iframe 加载 <code>index.html</code>，模拟点击 [LEARN] 流程并验证跳转逻辑</div>
+
+<!-- 摘要卡片 -->
+<div class="summary" id="summary">
+  <div class="summary-card total">
+    <div class="summary-num" id="cnt-total">0</div>
+    <div class="summary-label">总用例</div>
+  </div>
+  <div class="summary-card ok">
+    <div class="summary-num" id="cnt-pass">0</div>
+    <div class="summary-label">通过</div>
+  </div>
+  <div class="summary-card err">
+    <div class="summary-num" id="cnt-fail">0</div>
+    <div class="summary-label">失败</div>
+  </div>
+  <div class="summary-card run">
+    <div class="summary-num" id="cnt-ms">0</div>
+    <div class="summary-label">总耗时(ms)</div>
+  </div>
+</div>
+
+<!-- 目标页面 -->
+<div class="panel">
+  <h2>目标应用</h2>
+  <div id="target-wrap">
+    <iframe id="target" src="index.html"></iframe>
+    <div id="target-status" class="loading">加载中…</div>
+  </div>
+  <div class="hint">↑ 这是被测页面。点击下方按钮前，确保 <code>index.html</code> 已完全加载（按钮可点击）。</div>
+</div>
+
+<!-- 控制 -->
+<div class="panel">
+  <h2>控制台</h2>
+  <div class="controls">
+    <button id="btn-load">🔄 重新加载</button>
+    <button id="btn-run-all" class="secondary">▶️ 运行全部测试</button>
+    <button id="btn-t1">📂 打开学习路径</button>
+    <button id="btn-t2">🖱️ 点击 step-node</button>
+    <button id="btn-t3">🎯 点击 path-step</button>
+    <button id="btn-t4">🔘 主按钮事件</button>
+    <button id="btn-t5">❌ 关闭逻辑</button>
+    <button id="btn-t6">🔍 搜索高亮</button>
+    <button id="btn-clear" class="danger">🗑️ 清空日志</button>
+  </div>
+</div>
+
+<!-- 结果 -->
+<div class="panel">
+  <h2>测试结果</h2>
+  <table>
+    <thead>
+      <tr>
+        <th style="width:60px">状态</th>
+        <th style="width:160px">用例</th>
+        <th>断言</th>
+        <th style="width:80px">耗时</th>
+        <th style="width:140px">时间</th>
+      </tr>
+    </thead>
+    <tbody id="results">
+      <tr><td colspan="5" style="text-align:center;color:#64748B;padding:30px">尚未运行测试</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- 日志 -->
+<div class="panel">
+  <h2>捕获日志（含 [LEARN] 埋点）</h2>
+  <div id="console"></div>
+</div>
+
+<script>
+  // ── 工具 ──────────────────────────────────────────────
+  const $ = id => document.getElementById(id);
+  const iframe = $('target');
+  const targetDoc = () => iframe.contentDocument || iframe.contentWindow.document;
+  const targetWin = () => iframe.contentWindow;
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+  // 结果集合
+  const results = [];
+  const logs = [];
+  const summary = { total: 0, pass: 0, fail: 0, ms: 0 };
+
+  function setStatus(text, cls = '') {
+    const s = $('target-status');
+    s.textContent = text;
+    s.className = cls;
+  }
+
+  function logLine(html, cls = '') {
+    const div = document.createElement('div');
+    div.className = 'log-line ' + cls;
+    div.innerHTML = html;
+    $('console').appendChild(div);
+    $('console').scrollTop = $('console').scrollHeight;
+  }
+
+  // 拦截 iframe 内 console 输出
+  function attachConsoleHook() {
+    try {
+      const win = targetWin();
+      const origLog = win.console.log;
+      const origWarn = win.console.warn;
+      const origErr = win.console.error;
+      win.console.log = function (...args) {
+        logs.push({ level: 'log', text: args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ') });
+        appendLog(args, 'log-info');
+        origLog.apply(win.console, args);
+      };
+      win.console.warn = function (...args) {
+        logs.push({ level: 'warn', text: args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ') });
+        appendLog(args, 'log-warn');
+        origWarn.apply(win.console, args);
+      };
+      win.console.error = function (...args) {
+        logs.push({ level: 'error', text: args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ') });
+        appendLog(args, 'log-error');
+        origErr.apply(win.console, args);
+      };
+    } catch (e) {
+      logLine('⚠️ 无法 hook iframe console（同源限制）: ' + e.message, 'log-warn');
+    }
+  }
+
+  function appendLog(args, cls) {
+    const text = args.map(a => {
+      if (typeof a === 'string') return a;
+      try { return JSON.stringify(a); } catch { return String(a); }
+    }).join(' ');
+    const isLearn = text.includes('[LEARN]');
+    logLine((isLearn ? '🔹 ' : '  ') + escapeHtml(text), isLearn ? 'log-learn' : cls);
+  }
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+
+  // ── 测试用例记录 ──────────────────────────────────────
+  function record(name, status, assertText, ms) {
+    const row = {
+      name, status, assertText,
+      ms: ms.toFixed(1),
+      time: new Date().toLocaleTimeString('zh-CN', { hour12: false })
+    };
+    results.unshift(row);
+    summary.total++;
+    summary.ms += ms;
+    if (status === 'PASS') summary.pass++;
+    else if (status === 'FAIL') summary.fail++;
+    renderResults();
+    renderSummary();
+  }
+
+  function renderResults() {
+    const tbody = $('results');
+    if (results.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#64748B;padding:30px">尚未运行测试</td></tr>';
+      return;
+    }
+    tbody.innerHTML = results.map(r => {
+      const cls = r.status === 'PASS' ? 'pass' : r.status === 'FAIL' ? 'fail' : r.status === 'RUN' ? 'run' : 'skip';
+      return `<tr class="${cls}">
+        <td><span class="badge ${r.status === 'PASS' ? 'pass' : r.status === 'FAIL' ? 'fail' : r.status === 'RUN' ? 'run' : 'skip'}">${r.status}</span></td>
+        <td>${escapeHtml(r.name)}</td>
+        <td>${escapeHtml(r.assertText)}</td>
+        <td>${r.ms}ms</td>
+        <td>${r.time}</td>
+      </tr>`;
+    }).join('');
+  }
+
+  function renderSummary() {
+    $('cnt-total').textContent = summary.total;
+    $('cnt-pass').textContent = summary.pass;
+    $('cnt-fail').textContent = summary.fail;
+    $('cnt-ms').textContent = summary.ms.toFixed(0);
+  }
+
+  // ── 测试用例 ──────────────────────────────────────────
+  async function test(name, fn) {
+    const t0 = performance.now();
+    logLine(`▶️ 启动测试: ${name}`, 'log-info');
+    try {
+      const assertText = await fn();
+      const ms = performance.now() - t0;
+      record(name, 'PASS', assertText, ms);
+      logLine(`✅ 通过: ${name} · ${ms.toFixed(1)}ms · ${assertText}`, 'log-ok');
+    } catch (e) {
+      const ms = performance.now() - t0;
+      record(name, 'FAIL', e.message, ms);
+      logLine(`❌ 失败: ${name} · ${ms.toFixed(1)}ms · ${e.message}`, 'log-error');
+    }
+  }
+
+  function assert(cond, msg) {
+    if (!cond) throw new Error(msg);
+  }
+
+  // ── iframe 加载就绪 ──────────────────────────────────
+  function whenReady() {
+    return new Promise(resolve => {
+      if (iframe.contentDocument && iframe.contentDocument.readyState === 'complete') {
+        // 等 nodes 数组就绪
+        const tryResolve = () => {
+          if (targetWin().nodes && targetWin().nodes.length > 0) resolve();
+          else setTimeout(tryResolve, 100);
+        };
+        tryResolve();
+      } else {
+        iframe.addEventListener('load', () => {
+          const tryResolve = () => {
+            if (targetWin().nodes && targetWin().nodes.length > 0) resolve();
+            else setTimeout(tryResolve, 100);
+          };
+          tryResolve();
+        }, { once: true });
+      }
+    });
+  }
+
+  // ── 6 个核心测试 ──────────────────────────────────────
+  async function runAll() {
+    $('results').innerHTML = '<tr><td colspan="5" style="text-align:center;color:#64748B;padding:30px">运行中…</td></tr>';
+    results.length = 0;
+    summary.total = summary.pass = summary.fail = summary.ms = 0;
+    renderSummary();
+    logLine('🧪 ========== 开始测试套件 ==========', 'log-info');
+
+    await whenReady();
+    logLine(`✅ 目标已就绪: ${targetWin().nodes.length} 个节点`, 'log-ok');
+
+    // T1: 打开学习路径
+    await test('T1: 打开学习路径 overlay', async () => {
+      $('target').contentWindow.openLearning();
+      await sleep(50);
+      const overlay = targetDoc().getElementById('learning-overlay');
+      assert(overlay && overlay.classList.contains('open'), 'learning-overlay 未添加 .open');
+      const steps = targetDoc().querySelectorAll('.path-step').length;
+      const tags = targetDoc().querySelectorAll('.step-node').length;
+      assert(steps > 0, '未渲染任何 .path-step');
+      assert(tags > 0, '未渲染任何 .step-node');
+      return `${steps} 个步骤 / ${tags} 个节点标签已渲染`;
+    });
+
+    // T2: 点击 step-node（CRS）
+    await test('T2: 点击 step-node 触发跳转', async () => {
+      // 找到含 "crs" 的 step-node
+      const nodeEl = Array.from(targetDoc().querySelectorAll('.step-node')).find(el => el.dataset.nodeId === 'crs');
+      assert(nodeEl, '未找到 data-node-id="crs" 的 step-node');
+      nodeEl.click();
+      await sleep(200);
+      const panel = targetDoc().getElementById('panel');
+      assert(panel.classList.contains('open'), 'panel 未打开');
+      const title = targetDoc().getElementById('panel-title').textContent;
+      assert(title.includes('CRS'), `panel 标题不是 CRS，实际: ${title}`);
+      return `panel 标题: "${title}"`;
+    });
+
+    // T3: 点击 path-step（高亮节点）
+    await test('T3: 点击 path-step 触发高亮', async () => {
+      targetWin().openLearning();
+      await sleep(50);
+      const firstStep = targetDoc().querySelector('.path-step');
+      assert(firstStep, '未找到 .path-step');
+      firstStep.click();
+      await sleep(300);
+      // 至少有一个 .highlighted 节点
+      const highlighted = targetDoc().querySelectorAll('.highlighted, [class*="highlight"]');
+      return `点击首个 step，document 中含 highlight 元素 ${highlighted.length} 个`;
+    });
+
+    // T4: 主按钮事件
+    await test('T4: learning-btn 绑定事件', async () => {
+      const btn = targetDoc().getElementById('learning-btn');
+      assert(btn, 'learning-btn 不存在');
+      // 关闭后再次点
+      targetWin().closeLearning();
+      await sleep(50);
+      btn.click();
+      await sleep(100);
+      const overlay = targetDoc().getElementById('learning-overlay');
+      assert(overlay.classList.contains('open'), '点击 learning-btn 未打开 overlay');
+      return 'learning-btn click → overlay.open 正常';
+    });
+
+    // T5: 关闭逻辑
+    await test('T5: 关闭按钮和背景点击', async () => {
+      // 点击关闭按钮
+      targetDoc().getElementById('learning-close').click();
+      await sleep(50);
+      const overlay = targetDoc().getElementById('learning-overlay');
+      assert(!overlay.classList.contains('open'), 'learning-close 未关闭 overlay');
+      // 打开后再点背景
+      targetWin().openLearning();
+      await sleep(50);
+      // 直接调 closeLearning
+      targetWin().closeLearning();
+      await sleep(50);
+      assert(!overlay.classList.contains('open'), 'closeLearning() 失效');
+      return '关闭逻辑: closeLearning() ✓';
+    });
+
+    // T6: 搜索高亮
+    await test('T6: 搜索关键字高亮', async () => {
+      targetWin().openSearch && targetWin().openSearch();
+      const input = targetDoc().getElementById('search-input');
+      assert(input, 'search-input 不存在');
+      input.value = '37号文';
+      input.dispatchEvent(new targetWin().Event('input', { bubbles: true }));
+      await sleep(100);
+      const results = targetDoc().querySelectorAll('.search-result');
+      const marks = targetDoc().querySelectorAll('.search-result mark');
+      assert(results.length > 0, '搜索"37号文"无结果');
+      assert(marks.length > 0, '未生成 <mark> 高亮');
+      return `${results.length} 条结果, ${marks.length} 处高亮`;
+    });
+
+    logLine('🏁 ========== 测试套件结束 ==========', 'log-info');
+    logLine(`📊 通过 ${summary.pass} / 失败 ${summary.fail} / 总 ${summary.total} · 总耗时 ${summary.ms.toFixed(0)}ms`, summary.fail === 0 ? 'log-ok' : 'log-error');
+  }
+
+  // ── 单个测试运行 ──────────────────────────────────────
+  async function runOne(fnName) {
+    logLine(`▶️ 单测: ${fnName}`, 'log-info');
+    await whenReady();
+    if (fnName === 't1') await test('T1: 打开学习路径 overlay', async () => {
+      targetWin().openLearning();
+      await sleep(50);
+      const overlay = targetDoc().getElementById('learning-overlay');
+      assert(overlay.classList.contains('open'), 'overlay 未打开');
+      return 'overlay 已打开';
+    });
+    else if (fnName === 't2') await test('T2: 点击 step-node', async () => {
+      const nodeEl = Array.from(targetDoc().querySelectorAll('.step-node')).find(el => el.dataset.nodeId === 'crs');
+      assert(nodeEl, '未找到 crs 节点');
+      nodeEl.click();
+      await sleep(200);
+      const title = targetDoc().getElementById('panel-title').textContent;
+      assert(title.includes('CRS'), `title 错误: ${title}`);
+      return `跳转到 ${title}`;
+    });
+    else if (fnName === 't3') await test('T3: 点击 path-step', async () => {
+      targetWin().openLearning();
+      await sleep(50);
+      targetDoc().querySelector('.path-step').click();
+      await sleep(200);
+      return '已点击首个 step';
+    });
+    else if (fnName === 't4') await test('T4: 主按钮事件', async () => {
+      targetWin().closeLearning();
+      await sleep(50);
+      targetDoc().getElementById('learning-btn').click();
+      await sleep(100);
+      assert(targetDoc().getElementById('learning-overlay').classList.contains('open'), '未打开');
+      return 'click → overlay 正常';
+    });
+    else if (fnName === 't5') await test('T5: 关闭逻辑', async () => {
+      targetDoc().getElementById('learning-close').click();
+      await sleep(50);
+      assert(!targetDoc().getElementById('learning-overlay').classList.contains('open'), '未关闭');
+      return 'close 正常';
+    });
+    else if (fnName === 't6') await test('T6: 搜索高亮', async () => {
+      targetWin().openSearch && targetWin().openSearch();
+      const input = targetDoc().getElementById('search-input');
+      input.value = '37号文';
+      input.dispatchEvent(new targetWin().Event('input', { bubbles: true }));
+      await sleep(100);
+      const marks = targetDoc().querySelectorAll('.search-result mark');
+      assert(marks.length > 0, '无高亮');
+      return `${marks.length} 处高亮`;
+    });
+  }
+
+  // ── iframe 事件 ───────────────────────────────────────
+  iframe.addEventListener('load', () => {
+    setStatus('已加载', '');
+    setTimeout(attachConsoleHook, 50);
+    setTimeout(() => {
+      const w = targetWin();
+      const nodeCount = w.nodes ? w.nodes.length : 0;
+      if (nodeCount > 0) {
+        setStatus(`就绪 · ${nodeCount} 节点`, '');
+        logLine(`✅ iframe 加载完成 · ${nodeCount} 个节点 · console hook 已挂载`, 'log-ok');
+      } else {
+        setStatus('等待 nodes 就绪…', 'loading');
+        const iv = setInterval(() => {
+          if (targetWin().nodes && targetWin().nodes.length > 0) {
+            clearInterval(iv);
+            setStatus(`就绪 · ${targetWin().nodes.length} 节点`, '');
+            logLine(`✅ nodes 就绪 · ${targetWin().nodes.length} 个节点`, 'log-ok');
+          }
+        }, 200);
+      }
+    }, 200);
+  });
+
+  // ── 按钮绑定 ─────────────────────────────────────────
+  $('btn-load').addEventListener('click', () => {
+    logs.length = 0;
+    $('console').innerHTML = '';
+    setStatus('加载中…', 'loading');
+    iframe.src = iframe.src;
+  });
+  $('btn-run-all').addEventListener('click', runAll);
+  $('btn-t1').addEventListener('click', () => runOne('t1'));
+  $('btn-t2').addEventListener('click', () => runOne('t2'));
+  $('btn-t3').addEventListener('click', () => runOne('t3'));
+  $('btn-t4').addEventListener('click', () => runOne('t4'));
+  $('btn-t5').addEventListener('click', () => runOne('t5'));
+  $('btn-t6').addEventListener('click', () => runOne('t6'));
+  $('btn-clear').addEventListener('click', () => {
+    $('console').innerHTML = '';
+    logs.length = 0;
+  });
+</script>
+</body>
+</html>
